@@ -106,13 +106,19 @@ sendRequest (RestRequest {..}) =
                      case lookup "Transfer-Encoding" headerMap of
                        Just "chunked" -> True
                        _ -> False
-             print body
              return $
                     if isChunked
                     then case parseOnly chunkP body of
-                           Left err -> Left $ "Chunkparser failed: " ++ err
-                           Right fullBs -> eitherDecodeStrict fullBs
-                    else eitherDecodeStrict body
+                           Left err ->
+                               Left $ "Chunkparser failed: " ++ err ++ " on input: " ++ BSC.unpack body
+                           Right fullBs -> decodeCustomErr ("on input: " ++ BSC.unpack body) fullBs
+                    else decodeCustomErr ("on input: " ++ BSC.unpack body) body
+
+      decodeCustomErr err bs =
+          case eitherDecodeStrict bs of
+            Left errMsg ->
+                Left $ "JSON Decode failed: " ++ errMsg ++ " " ++ err
+            Right ok -> Right ok
 
       fixHeaderLine bs =
           if BS.null bs
